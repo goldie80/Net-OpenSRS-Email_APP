@@ -1714,6 +1714,10 @@ L<http://cpanratings.perl.org/d/Net-OpenSRS-Email_APP>
 
 L<http://search.cpan.org/dist/Net-OpenSRS-Email_APP/>
 
+=item * Github repository
+
+L<https://github.com/goldie80/Net-OpenSRS-Email_APP>
+
 =back
 
 =head1 ACKNOWLEDGEMENTS
