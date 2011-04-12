@@ -14,11 +14,11 @@ Net::OpenSRS::Email_APP -- Communicate using the OpenSRS Email Service Account P
 
 =head1 VERSION
 
-Version 0.50
+Version 0.51
 
 =cut 
 
-our $VERSION = '0.50';
+our $VERSION = '0.51';
 $APP_PROTOCOL_VERSION='3.4';
 $Debug=0;
 @ISA=('IO::Socket::SSL');
