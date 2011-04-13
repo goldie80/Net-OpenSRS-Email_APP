@@ -14,11 +14,11 @@ Net::OpenSRS::Email_APP -- Communicate using the OpenSRS Email Service Account P
 
 =head1 VERSION
 
-Version 0.51
+Version 0.52
 
 =cut 
 
-our $VERSION = '0.51';
+our $VERSION = '0.52';
 $APP_PROTOCOL_VERSION='3.4';
 $Debug=0;
 @ISA=('IO::Socket::SSL');
@@ -56,7 +56,7 @@ my $Buf_len = 4096;
 
 =head1 DESCRIPTION
 
-    "Net::OpenSRS::Email_APP" provides and object interface for
+    "Net::OpenSRS::Email_APP" provides an object interface for
     communicating OpenSRS Email Service Account Provisioning Protocol
     (APP).  For this module to be useful to you, you will need an
     OpenSRS reseller account, and MAC credentials.  This module
@@ -70,7 +70,7 @@ my $Buf_len = 4096;
 =head2 new ( [ARGS] ) 
 
     Creates a "Net::OpenSRS::Email_APP" object.  "new"
-    requires the Username, Domain and Password arguments in
+    requires the User, Domain and Password arguments in
     key-value pairs.
     
     The following key-value pairs are accepted:
@@ -953,6 +953,10 @@ sub set_domain_brand {
       Required: Domain (and one of the optionals)
       Optional: Mailbox State
 
+    Note: OpenSRS will return Internal system error if you attempt to
+    set State='T' on a domain which currently does not have a
+    catch-all mailbox.  OpenSRS have deprecated catch-all addresses.
+
 =cut
 sub set_domain_catch_all_mailbox {
     my ($self, %args) = @_;
@@ -1283,9 +1287,10 @@ sub _call_opensrs {
     }
     
     if (exists $params{Required_Optional} && $params{Required_Optional} > 0) {
-        my $expected_count = int(@keys);
+        my $expected_count = int(@{$params{Required}});
         $expected_count += $params{Required_Optional};
-        if (int(keys(%$args)) < $expected_count) {
+        my $actual_count = int(keys(%$args));
+        if ($actual_count < $expected_count) {
             $error = "$sub: Please supply at least $params{Required_Optional} optional arguments";
             return (undef, $error);
         }
@@ -1641,12 +1646,6 @@ sub _read_buf {
     read $self, $buf, $Buf_len;
     return $buf;
 }
-
-#
-# This is a client-side only module
-#
-sub accept { return undef; }
-sub accept_SSL { return undef; }
 
 1;
 

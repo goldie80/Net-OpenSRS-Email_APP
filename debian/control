@@ -10,8 +10,8 @@ Homepage: http://search.cpan.org/dist/Net-OpenSRS-Email_APP/
 Package: libnet-opensrs-email-app-perl
 Architecture: all
 Depends: ${misc:Depends}, ${perl:Depends}, libio-socket-ssl-perl
-Description: Net::OpenSRS::Email_APP -- Communicate using the OpenSRS Email Service Account Provisioning Protocol
- "Net::OpenSRS::Email_APP" provides and object interface for
+Description: OpenSRS Email Service Account Provisioning Protocol
+ "Net::OpenSRS::Email_APP" provides an object interface for
  communicating OpenSRS Email Service Account Provisioning Protocol
  (APP). For this module to be useful to you, you will need an
  OpenSRS reseller account, and MAC credentials.

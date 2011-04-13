@@ -1,3 +1,10 @@
+0.52 Thu Apr 14 11:17:00 NZST 2011
+    - Bug: Fixed a problem with Required_Optional parameter to _call_opensrs()
+    - Bug: Removed accept and accept_SSL empty subs to fix CPAN build failures
+    - Documentation: Fixed two typos in documentation for new() 
+    - Documentation: Add a note to set_domain_catch_all_mailbox highlighting deprecation of catch-all addresses
+    - Packaging: Shorten description in debian/control to avoid some packaging warnings
+
 0.51 Tue Apr 12 15:20:00 NZST 2011
     - Include debian packaging files
 
