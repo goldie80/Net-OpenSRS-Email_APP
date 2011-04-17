@@ -1,6 +1,6 @@
 Net-OpenSRS-Email_APP
 
-"Net::OpenSRS::Email_APP" provides and object interface for
+"Net::OpenSRS::Email_APP" provides an object interface for
 communicating OpenSRS Email Service Account Provisioning Protocol
 (APP).  For this module to be useful to you, you will need an OpenSRS
 reseller account, and MAC credentials.  This module inherits

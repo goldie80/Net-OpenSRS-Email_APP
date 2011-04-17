@@ -14,11 +14,11 @@ Net::OpenSRS::Email_APP -- Communicate using the OpenSRS Email Service Account P
 
 =head1 VERSION
 
-Version 0.52
+Version 0.53
 
 =cut 
 
-our $VERSION = '0.52';
+our $VERSION = '0.53';
 $APP_PROTOCOL_VERSION='3.4';
 $Debug=0;
 @ISA=('IO::Socket::SSL');
@@ -370,7 +370,7 @@ sub get_domain_workgroups {
 
 =head2 get_group_alias_mailbox ( [ARGS] )
 
-    List the attributes and members belonging to this group-alias
+    List the attributes and members of this mailing-list
 
       Required: Domain Group_Alias_Mailbox
 
@@ -395,6 +395,24 @@ sub get_group_alias_mailbox {
 
 =cut
 sub get_mailbox {
+    my ($self, %args) = @_;
+
+    my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
+    if (defined $error) {
+        carp $error;
+    }
+    
+    return $rows;
+}
+
+=head2 get_mailbox_allow_list ( [ARGS] )
+
+    The allowed senders list for this mailbox
+
+      Required: Domain Mailbox
+
+=cut
+sub get_mailbox_allow_list {
     my ($self, %args) = @_;
 
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
@@ -454,6 +472,24 @@ sub get_mailbox_availability {
     my ($self, %args) = @_;
 
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox_List/], Args=>\%args);
+    if (defined $error) {
+        carp $error;
+    }
+    
+    return $rows;
+}
+
+=head2 get_mailbox_block_list ( [ARGS] )
+
+    The blocked senders list for this mailbox
+
+      Required: Domain Mailbox
+
+=cut
+sub get_mailbox_block_list {
+    my ($self, %args) = @_;
+
+    my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
     }
@@ -610,7 +646,7 @@ sub create_domain_welcome_email {
 
 =head2 create_group_alias_mailbox ( [ARGS] )
 
-    Creates an alias to the specified list of addresses
+    Creates a mailing-list to the specified list of addresses
     
       Required: Domain Group_Alias_Mailbox Workgroup Alias_To_Email_CDL
       Optional: Spam_Level
@@ -620,6 +656,25 @@ sub create_group_alias_mailbox {
     my ($self, %args) = @_;
 
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Group_Alias_Mailbox Workgroup Alias_To_Email_CDL/], Optional=>[qw/Spam_Level/], Args=>\%args);
+    if (defined $error) {
+        carp $error;
+    }
+    
+    return $rows;
+}
+
+=head2 create_mailbox ( [ARGS] )
+
+    Create a regular or filter-only mailbox
+    
+      Required: Domain Mailbox Workgroup Password
+      Optional: FilterOnly First_Name Last_Name Phone Fax Title Timezone Lang Spam_Tag Spam_Folder Spam_Level
+
+=cut
+sub create_mailbox {
+    my ($self, %args) = @_;
+
+    my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox Workgroup Password/], Optional=>[qw/FilterOnly First_Name Last_Name Phone Fax Title Timezone Lang Spam_Tag Spam_Folder Spam_Level/], Args=>\%args);
     if (defined $error) {
         carp $error;
     }
@@ -687,7 +742,7 @@ sub delete_domain {
 
 =head2 delete_group_alias_mailbox ( [ARGS] )
 
-    Deletes this group-alias
+    Deletes this mailing-list
 
       Required: Domain Mailbox
     
@@ -835,7 +890,7 @@ sub change_domain {
 
 =head2 change_group_alias_mailbox ( [ARGS] )
 
-    Alter this group-alias
+    Alter this mailing-list
     
       Required: Domain Group_Alias_Mailbox (and one optional)
       Optional: Alias_To_Email_CDL Spam_Level
@@ -845,6 +900,27 @@ sub change_group_alias_mailbox {
     my ($self, %args) = @_;
 
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Group_Alias_Mailbox/], Optional=>[qw/Alias_To_Email_CDL Spam_Level/], Required_Optional=>1, Args=>\%args);
+    if (defined $error) {
+        carp $error;
+    }
+    
+    return $rows;
+}
+
+=head2 change_mailbox ( [ARGS] )
+
+    Alters this regular or filter-only mailbox
+    
+      Required: Domain Mailbox
+      Optional: Workgroup Password FilterOnly First_Name Last_Name Phone Fax Title Timezone Language Spam_Tag Spam_Folder Spam_Level
+
+    Note: When specifying FilterOnly, it may only be 'F' - you may change a filter-only mailbox to regular, but not the reverse.
+
+=cut
+sub change_mailbox {
+    my ($self, %args) = @_;
+
+    my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Optional=>[qw/Workgroup Password FilterOnly First_Name Last_Name Phone Fax Title Timezone Language Spam_Tag Spam_Folder Spam_Level/], Required_Optional=>1, Args=>\%args);
     if (defined $error) {
         carp $error;
     }

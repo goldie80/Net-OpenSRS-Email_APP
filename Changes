@@ -1,3 +1,9 @@
+0.53 Mon Apr 18 10:00:37 NZST 2011
+    - Bug: Implement missing calls: create_mailbox, change_mailbox, get_mailbox_allow_list, get_mailbox_block_list
+    - Bug: Add IO::Socket:SSL to MakeMaker PREREQ_PM to help cleanup more CPAN build failures
+    - Documentation: Alter documentation for {get,create,delete,change}_group_alias_mailbox calls. "Group Alias" in OpenSRS parlance is a Mailing List.
+    - Documentation: Fix last typo "and" vs "an" typo
+
 0.52 Thu Apr 14 11:17:00 NZST 2011
     - Bug: Fixed a problem with Required_Optional parameter to _call_opensrs()
     - Bug: Removed accept and accept_SSL empty subs to fix CPAN build failures
