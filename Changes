@@ -1,3 +1,12 @@
+0.55 Fri May 06 11:01:00 NZST 2011
+    - Bug: Change buffer code in _read_response to use Timeout based loop rather than a read-count.  Large responses were previously truncated.
+    - Bug: Response lines should not be parsed until the buffer is complete
+    - Bug: Increase default buffer read length
+    - Feature: Changing parsing related debug messages to require $Debug > 2
+
+0.54 Tue Apr 26 21:00:37 NZST 2011
+    - Feature: Add last_status call to return last OpenSRS status code and text
+
 0.53 Mon Apr 18 10:00:37 NZST 2011
     - Bug: Implement missing calls: create_mailbox, change_mailbox, get_mailbox_allow_list, get_mailbox_block_list
     - Bug: Add IO::Socket:SSL to MakeMaker PREREQ_PM to help cleanup more CPAN build failures

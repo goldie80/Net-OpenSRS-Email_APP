@@ -7,6 +7,7 @@ use Carp;
 use IO::Socket::SSL;
 use IO::Select;
 use Errno;
+use Time::HiRes qw(gettimeofday tv_interval);
 
 =head1 NAME
 
@@ -14,11 +15,11 @@ Net::OpenSRS::Email_APP -- Communicate using the OpenSRS Email Service Account P
 
 =head1 VERSION
 
-Version 0.53
+Version 0.55
 
 =cut 
 
-our $VERSION = '0.53';
+our $VERSION = '0.55';
 $APP_PROTOCOL_VERSION='3.4';
 $Debug=0;
 @ISA=('IO::Socket::SSL');
@@ -31,7 +32,7 @@ my %environments = (
 
 # Default timeout
 my $Timeout = 10;
-my $Buf_len = 4096;
+my $Buf_len = 32768;
 
 =head1 SYNOPSIS
 
@@ -183,6 +184,23 @@ sub debug {
     if (defined $level && $level =~ /^\d+$/) {
         $Debug = $level;
     }
+}
+
+=head2 last_status ( )
+
+    Returns an array containing the status code and status text from
+    the last OpenSRS call
+
+    Note: The status text may be undefined, you should test for this.
+
+=cut
+sub last_status {
+    my ($self) = @_;
+
+    my $status_code = ${*$self}{opensrs_app_status_code};
+    my $status_text = ${*$self}{opensrs_app_status_text};
+
+    return ($status_code, $status_text);
 }
 
 =head1 GET METHODS
@@ -1433,41 +1451,50 @@ sub _read_response {
     # First lets read out the buffer a reasonable number of times
     # until we receive a complete response (signified by \r\n.\r\n)
     #
-    my ($buf, @response);
-    my $max_reads = 3;
+    my $buf;
+    my $t0 = [gettimeofday()];
+    my $elapsed = tv_interval($t0);
     my $complete_response = 0;
-    my $reads = 0;
-    while (!$complete_response && $reads < $max_reads) {
+    while (!$complete_response && ($elapsed < $Timeout)) {
         if ($Debug > 1) {
-            print STDERR "==enter buf read ==\ncomplete_response: $complete_response\nreads: $reads\nmax_reads: $max_reads\n\n";
+            print STDERR "==enter buf read ==\ncomplete_response: $complete_response\nelapsed: $elapsed\nTimeout: $Timeout\n\n";
         }
         $buf .= _read_buf($self);
         if (!defined $buf) {
             return $!, $@;
         }
-
+        
         if ($Debug) {
             print STDERR "read: $buf\n\n";
         }
-
-        foreach my $line (split(/\r\n/, $buf)) {
-            if ($line eq '.') {
-                $complete_response = 1;
-                last;
-            }
-            push @response, $line;
+        
+        if ($buf =~ /\r\n\.\r\n/ms) {
+            $complete_response = 1;
+            last;
         }
-        $reads++;
+
+        $elapsed = tv_interval($t0);
         if ($Debug > 1) {
-            print STDERR "== buf read ==\ncomplete_response: $complete_response\nreads: $reads\n\n";
+            print STDERR "== buf read ==\ncomplete_response: $complete_response\nelapsed: $elapsed\n\n";
         }
     }
+
+    if (!$complete_response) {
+        return 1, "unable to receive complete response within $Timeout seconds\n";
+    }
+
+    
+    my @response = split(/\r\n/, $buf);
+    pop @response;
 
     #
     # Second, parse out the status-line, return if we encountered an error
     #
     my $status_line = shift @response;
     my ($status, $status_code, $status_text) = split(/\s+/, $status_line, 3);
+    ${*$self}{opensrs_app_status_code} = $status_code;
+    ${*$self}{opensrs_app_status_text} = $status_text;
+
     if ($status eq 'ER') {
         if (@response > 0) {
             if (!defined $status_text) {
@@ -1475,6 +1502,8 @@ sub _read_response {
             }
             $status_text = join("\n", $status_text, @response);
         }
+
+        ${*$self}{opensrs_app_status_text} = $status_text;
 
         my $error = "OpenSRS returned an error, status code: $status_code";
         if (defined $status_text) {
@@ -1529,12 +1558,12 @@ sub _parse_single_row {
     }
     
     foreach my $char (split(//, $line)) {
-        if ($Debug > 1) {
+        if ($Debug > 2) {
             print STDERR "char: $char ";
         }
         
         if ($within_key && $char ne '=') {
-            if ($Debug > 1) {
+            if ($Debug > 2) {
                 print STDERR "within_key and char ne =\n";
             }
             
@@ -1543,13 +1572,13 @@ sub _parse_single_row {
             }
         }
         elsif ($within_key && $char eq '=') {
-            if ($Debug > 1) {
+            if ($Debug > 2) {
                 print STDERR "within_key and char eq =\n";
             }
             $within_key = 0;
         }
         elsif (!$within_key && !$within_value && $char eq '"') {
-            if ($Debug > 1) {
+            if ($Debug > 2) {
                 print STDERR "within_value and char eq \"\n";
             }
             $within_value = 1;
@@ -1557,21 +1586,21 @@ sub _parse_single_row {
             $value = $char;
         }
         elsif ($within_value && !$seen_quote && $char eq '"') {
-            if ($Debug > 1) {
+            if ($Debug > 2) {
                 print STDERR "within_value and !seen_quote and char eq \"\n";
             }
             $seen_quote = 1;
             $value .= $char;
         }
         elsif ($within_value && $seen_quote && $char eq '"') {
-            if ($Debug > 1) {
+            if ($Debug > 2) {
                 print STDERR "within_value and seen_quote and char eq \"\n";
             }
             $seen_quote = 0;
             $value .= $char;
         }
         elsif ($within_value && $seen_quote && $char =~ /\s/) {
-            if ($Debug > 1) {
+            if ($Debug > 2) {
                 print STDERR "within_value and seen_quote and char matches space\n";
             }
             $seen_quote = 0;
@@ -1588,7 +1617,7 @@ sub _parse_single_row {
             $value = undef;
         }
         elsif ($within_value && !$seen_quote) {
-            if ($Debug > 1) {
+            if ($Debug > 2) {
                 print STDERR "within_value and !seen_quote\n";
             }
             $value .= $char;
@@ -1621,7 +1650,7 @@ sub _parse_multiple_rows {
         $line_no++;
         if ($line_no == 1) {
             foreach my $key (split(/\s+/, $line)) {
-                if ($Debug > 1) {
+                if ($Debug > 2) {
                     print STDERR "found key $key\n";
                 }
                 push @keys, $key;
@@ -1636,12 +1665,12 @@ sub _parse_multiple_rows {
             my $column = 0;
             my $value;
             foreach my $char (split(//, $line)) {
-                if ($Debug > 1) {
+                if ($Debug > 2) {
                     print STDERR "char: $char ";
                 }
                 
                 if (!$within_value && $char eq '"') {
-                    if ($Debug > 1) {
+                    if ($Debug > 2) {
                         print STDERR "within_value and char eq \"\n";
                     }
                     $within_value = 1;
@@ -1649,21 +1678,21 @@ sub _parse_multiple_rows {
                     $value = $char;
                 }
                 elsif ($within_value && !$seen_quote && $char eq '"') {
-                    if ($Debug > 1) {
+                    if ($Debug > 2) {
                         print STDERR "within_value and !seen_quote and char eq \"\n";
                     }
                     $seen_quote = 1;
                     $value .= $char;
                 }
                 elsif ($within_value && $seen_quote && $char eq '"') {
-                    if ($Debug > 1) {
+                    if ($Debug > 2) {
                         print STDERR "within_value and seen_quote and char eq \"\n";
                     }
                     $seen_quote = 0;
                     $value .= $char;
                 }
                 elsif ($within_value && $seen_quote && $char =~ /\s/) {
-                    if ($Debug > 1) {
+                    if ($Debug > 2) {
                         print STDERR "within_value and seen_quote and char matches space\n";
                     }
                     $seen_quote = 0;
@@ -1673,7 +1702,7 @@ sub _parse_multiple_rows {
                     $value =~ s/\"$//;
                     $value =~ s/\"\"/\"/g;
 
-                    if ($Debug > 1) {
+                    if ($Debug > 2) {
                         print STDERR "adding $keys[$column]: $value\n";
                     }
                     
@@ -1685,7 +1714,7 @@ sub _parse_multiple_rows {
                     $column++;
                 }
                 elsif ($within_value && !$seen_quote) {
-                    if ($Debug > 1) {
+                    if ($Debug > 2) {
                         print STDERR "within_value and !seen_quote\n";
                     }
                     $value .= $char;
