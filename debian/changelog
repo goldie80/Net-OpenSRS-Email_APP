@@ -1,3 +1,10 @@
+libnet-opensrs-email-app-perl (0.56) natty; urgency=low
+
+  * New upstream release
+  * Include upstream Changes file in packaged documentation
+
+ -- Mark Goldfinch <mark.goldfinch@modicagroup.com>  Thu, 28 Jul 2011 10:08:22 +1200
+
 libnet-opensrs-email-app-perl (0.55) unstable; urgency=low
 
   * New upstream release

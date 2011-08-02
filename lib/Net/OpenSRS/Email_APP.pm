@@ -2,7 +2,7 @@ package Net::OpenSRS::Email_APP;
 
 use strict;
 use warnings;
-use vars qw($VERSION @ISA $APP_PROTOCOL_VERSION $Debug);
+use vars qw($VERSION @ISA $APP_PROTOCOL_VERSION $Debug $Emit_Debug $Last_Error);
 use Carp;
 use IO::Socket::SSL;
 use IO::Select;
@@ -15,13 +15,14 @@ Net::OpenSRS::Email_APP -- Communicate using the OpenSRS Email Service Account P
 
 =head1 VERSION
 
-Version 0.55
+Version 0.56
 
 =cut 
 
-our $VERSION = '0.55';
+our $VERSION = '0.56';
 $APP_PROTOCOL_VERSION='3.4';
 $Debug=0;
+$Emit_Debug = sub { print STDERR join("\n", @_) . "\n"; };
 @ISA=('IO::Socket::SSL');
 
 # All possible OpenSRS Email Service APP environments
@@ -122,7 +123,7 @@ sub new {
     }
 
     if ($Debug) {
-        print STDERR "Net::OpenSRS::Email_APP using:\nEnvironment: $env\nHost/Port: $arg{PeerAddr}\nUser: ${*$self}{opensrs_app_user}\nDomain: ${*$self}{opensrs_app_domain}\nPassword: ${*$self}{opensrs_app_password}\nTimeout: $arg{Timeout}\n\n";
+        $Emit_Debug->("Net::OpenSRS::Email_APP using:\nEnvironment: $env\nHost/Port: $arg{PeerAddr}\nUser: ${*$self}{opensrs_app_user}\nDomain: ${*$self}{opensrs_app_domain}\nPassword: ${*$self}{opensrs_app_password}\nTimeout: $arg{Timeout}\n\n");
     }
 
     return $self->configure(\%arg);
@@ -152,9 +153,11 @@ sub login {
     my ($rows,$error) = $self->_call_opensrs(Required=>[qw/User Domain Password/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
+        return 0;
     }
 
-    return 0;
+    return 1;
 }
 
 =head2 quit ()
@@ -173,16 +176,23 @@ sub quit {
     $self->close();
 }
 
-=head2 debug ( $level )
+=head2 debug ( $level, $debug_cb )
 
-    Set the debug level, debug output is emitted to STDERR
+    Set the debug level, debug output will optionally be returned
+    using supplied callback
+
+    If $debug_cb is not supplied, output will be emitted via STDERR
 
 =cut
 sub debug {
-    my ($self, $level) = @_;
+    my ($self, $level, $debug_cb) = @_;
 
     if (defined $level && $level =~ /^\d+$/) {
         $Debug = $level;
+    }
+
+    if (defined $debug_cb && ref($debug_cb) eq 'CODE') {
+        $Emit_Debug = $debug_cb;
     }
 }
 
@@ -218,6 +228,7 @@ sub get_admin {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -237,6 +248,7 @@ sub get_alternate_mailbox_names {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Mailbox_List/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -253,6 +265,7 @@ sub get_company_domains {
     my ($rows, $error) = $self->_call_opensrs();
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -271,6 +284,7 @@ sub get_domain {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -289,6 +303,7 @@ sub get_domain_allow_list {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -307,6 +322,7 @@ sub get_domain_block_list {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -325,6 +341,7 @@ sub get_domain_brand {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -343,6 +360,7 @@ sub get_domain_mailboxes {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -362,6 +380,7 @@ sub get_domain_mailbox_limits {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -381,6 +400,7 @@ sub get_domain_workgroups {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -399,6 +419,7 @@ sub get_group_alias_mailbox {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Group_Alias_Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -418,6 +439,7 @@ sub get_mailbox {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -436,6 +458,7 @@ sub get_mailbox_allow_list {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -455,6 +478,7 @@ sub get_mailbox_any {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -473,6 +497,7 @@ sub get_mailbox_autorespond {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -492,6 +517,7 @@ sub get_mailbox_availability {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox_List/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -510,6 +536,7 @@ sub get_mailbox_block_list {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -528,6 +555,7 @@ sub get_mailbox_forward {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -546,6 +574,7 @@ sub get_mailbox_forward_only {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -564,6 +593,7 @@ sub get_mailbox_suspension {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -583,6 +613,7 @@ sub get_num_domain_mailboxes {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -603,6 +634,7 @@ sub create_alias_mailbox {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Alias_Mailbox Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -622,6 +654,7 @@ sub create_domain {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain/], Optional=>[qw/Timezone Language FilterMX Spam_Tag Spam_Folder Spam_Level/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -639,6 +672,7 @@ sub create_domain_alias {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Alias/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -657,6 +691,7 @@ sub create_domain_welcome_email {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Welcome_Text Welcome_Subject From_Name From_Address Charset Mime_Type/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -676,6 +711,7 @@ sub create_group_alias_mailbox {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Group_Alias_Mailbox Workgroup Alias_To_Email_CDL/], Optional=>[qw/Spam_Level/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -695,6 +731,7 @@ sub create_mailbox {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox Workgroup Password/], Optional=>[qw/FilterOnly First_Name Last_Name Phone Fax Title Timezone Lang Spam_Tag Spam_Folder Spam_Level/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -714,6 +751,7 @@ sub create_mailbox_forward_only {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox Workgroup Forward_Email/], Optional=>[qw/Spam_Level/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -732,6 +770,7 @@ sub create_workgroup {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Workgroup/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -753,6 +792,7 @@ sub delete_domain {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain/], Optional=>[qw/Cascade/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -771,6 +811,7 @@ sub delete_group_alias_mailbox {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -789,6 +830,7 @@ sub delete_domain_alias {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Alias/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -807,6 +849,7 @@ sub delete_domain_welcome_email {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -825,6 +868,7 @@ sub delete_mailbox {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -843,6 +887,7 @@ sub delete_mailbox_any {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -861,6 +906,7 @@ sub delete_mailbox_forward_only {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -880,6 +926,7 @@ sub delete_workgroup {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Optional=>[qw/Cascade/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -901,6 +948,7 @@ sub change_domain {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain/], Optional=>[qw/Timezone Language FilterMX Spam_Tag Spam_Folder Spam_Level/], Required_Optional=>1, Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -920,6 +968,7 @@ sub change_group_alias_mailbox {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Group_Alias_Mailbox/], Optional=>[qw/Alias_To_Email_CDL Spam_Level/], Required_Optional=>1, Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -941,6 +990,7 @@ sub change_mailbox {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Optional=>[qw/Workgroup Password FilterOnly First_Name Last_Name Phone Fax Title Timezone Language Spam_Tag Spam_Folder Spam_Level/], Required_Optional=>1, Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -960,6 +1010,7 @@ sub change_mailbox_forward_only {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox Forward_Email/], Optional=>[qw/New_Mailbox_Name Spam_Level/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -981,6 +1032,7 @@ sub set_domain_admin {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Optional=>[qw/State/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -999,6 +1051,7 @@ sub set_domain_allow_list {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain List/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1017,6 +1070,7 @@ sub set_domain_block_list {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain List/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1035,6 +1089,7 @@ sub set_domain_brand {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Brand_Code/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1058,6 +1113,7 @@ sub set_domain_catch_all_mailbox {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain/], Optional=>[qw/Mailbox State/], Required_Optional=>1, Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1076,6 +1132,7 @@ sub set_domain_disabled_status {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Disabled/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1095,6 +1152,7 @@ sub set_domain_mailbox_limits {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain/], Optional=>[qw/Mailbox Filter_Only Alias Forward_Only Mailing_List/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1115,6 +1173,7 @@ sub set_mail_admin {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Optional=>[qw/State/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1133,6 +1192,7 @@ sub set_mailbox_allow_list {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox List/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1151,6 +1211,7 @@ sub set_mailbox_block_list {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox List/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1170,6 +1231,7 @@ sub set_mailbox_autorespond {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Optional=>[qw/State Text/], Required_Optional=>1, Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1189,6 +1251,7 @@ sub set_mailbox_forward {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Optional=>[qw/Forward Keep_Copy State/], Required_Optional=>1, Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1208,6 +1271,7 @@ sub set_mailbox_suspension {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Optional=>[qw/SMTPIn SMTPRelay IMAP POP Webmail/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1227,6 +1291,7 @@ sub set_workgroup_admin {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Optional=>[qw/State/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1247,6 +1312,7 @@ sub rename_mailbox {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Old_Mailbox New_Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1267,6 +1333,7 @@ sub verify_password {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox Password/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1287,6 +1354,7 @@ sub show_available_offerings {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1305,6 +1373,7 @@ sub show_enabled_offerings {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1325,6 +1394,7 @@ sub disable_offering {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Mailbox_Offering_ID/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1346,6 +1416,7 @@ sub enable_offering {
     my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox Offering_ID/], Optional=>[qw/Auto_Renew/], Args=>\%args);
     if (defined $error) {
         carp $error;
+        $Last_Error = $error;
     }
     
     return $rows;
@@ -1432,7 +1503,7 @@ sub _send {
     }
 
     if ($Debug) {
-        print STDERR "sending: $msg\n";
+        $Emit_Debug->("sending: $msg\n");
     }
 
     printf $self "%s\r\n.\r\n", $msg;
@@ -1457,7 +1528,7 @@ sub _read_response {
     my $complete_response = 0;
     while (!$complete_response && ($elapsed < $Timeout)) {
         if ($Debug > 1) {
-            print STDERR "==enter buf read ==\ncomplete_response: $complete_response\nelapsed: $elapsed\nTimeout: $Timeout\n\n";
+            $Emit_Debug->("==enter buf read ==\ncomplete_response: $complete_response\nelapsed: $elapsed\nTimeout: $Timeout\n\n");
         }
         $buf .= _read_buf($self);
         if (!defined $buf) {
@@ -1465,7 +1536,7 @@ sub _read_response {
         }
         
         if ($Debug) {
-            print STDERR "read: $buf\n\n";
+            $Emit_Debug->("read: $buf\n\n");
         }
         
         if ($buf =~ /\r\n\.\r\n/ms) {
@@ -1475,7 +1546,7 @@ sub _read_response {
 
         $elapsed = tv_interval($t0);
         if ($Debug > 1) {
-            print STDERR "== buf read ==\ncomplete_response: $complete_response\nelapsed: $elapsed\n\n";
+            $Emit_Debug->("== buf read ==\ncomplete_response: $complete_response\nelapsed: $elapsed\n\n");
         }
     }
 
@@ -1554,17 +1625,17 @@ sub _parse_single_row {
     my $value;
     
     if ($Debug > 1) {
-        print STDERR "Response: $line\n";
+        $Emit_Debug->("Response: $line\n");
     }
     
     foreach my $char (split(//, $line)) {
         if ($Debug > 2) {
-            print STDERR "char: $char ";
+            $Emit_Debug->("char: $char ");
         }
         
         if ($within_key && $char ne '=') {
             if ($Debug > 2) {
-                print STDERR "within_key and char ne =\n";
+                $Emit_Debug->("within_key and char ne =\n");
             }
             
             if ($char !~ /\s/) {
@@ -1573,13 +1644,13 @@ sub _parse_single_row {
         }
         elsif ($within_key && $char eq '=') {
             if ($Debug > 2) {
-                print STDERR "within_key and char eq =\n";
+                $Emit_Debug->("within_key and char eq =\n");
             }
             $within_key = 0;
         }
         elsif (!$within_key && !$within_value && $char eq '"') {
             if ($Debug > 2) {
-                print STDERR "within_value and char eq \"\n";
+                $Emit_Debug->("within_value and char eq \"\n");
             }
             $within_value = 1;
             $seen_quote = 0;
@@ -1587,21 +1658,21 @@ sub _parse_single_row {
         }
         elsif ($within_value && !$seen_quote && $char eq '"') {
             if ($Debug > 2) {
-                print STDERR "within_value and !seen_quote and char eq \"\n";
+                $Emit_Debug->("within_value and !seen_quote and char eq \"\n");
             }
             $seen_quote = 1;
             $value .= $char;
         }
         elsif ($within_value && $seen_quote && $char eq '"') {
             if ($Debug > 2) {
-                print STDERR "within_value and seen_quote and char eq \"\n";
+                $Emit_Debug->("within_value and seen_quote and char eq \"\n");
             }
             $seen_quote = 0;
             $value .= $char;
         }
         elsif ($within_value && $seen_quote && $char =~ /\s/) {
             if ($Debug > 2) {
-                print STDERR "within_value and seen_quote and char matches space\n";
+                $Emit_Debug->("within_value and seen_quote and char matches space\n");
             }
             $seen_quote = 0;
             $within_value = 0;
@@ -1618,7 +1689,7 @@ sub _parse_single_row {
         }
         elsif ($within_value && !$seen_quote) {
             if ($Debug > 2) {
-                print STDERR "within_value and !seen_quote\n";
+                $Emit_Debug->("within_value and !seen_quote\n");
             }
             $value .= $char;
         }
@@ -1639,7 +1710,7 @@ sub _parse_multiple_rows {
     my ($response) = @_;
 
     if ($Debug > 1) {
-        print STDERR "Response: " . join("\n", @$response) . "\n";
+        $Emit_Debug->("Response: " . join("\n", @$response) . "\n");
     }
 
     my $rows = [];
@@ -1651,7 +1722,7 @@ sub _parse_multiple_rows {
         if ($line_no == 1) {
             foreach my $key (split(/\s+/, $line)) {
                 if ($Debug > 2) {
-                    print STDERR "found key $key\n";
+                    $Emit_Debug->("found key $key\n");
                 }
                 push @keys, $key;
             }
@@ -1666,12 +1737,12 @@ sub _parse_multiple_rows {
             my $value;
             foreach my $char (split(//, $line)) {
                 if ($Debug > 2) {
-                    print STDERR "char: $char ";
+                    $Emit_Debug->("char: $char ");
                 }
                 
                 if (!$within_value && $char eq '"') {
                     if ($Debug > 2) {
-                        print STDERR "within_value and char eq \"\n";
+                        $Emit_Debug->("within_value and char eq \"\n");
                     }
                     $within_value = 1;
                     $seen_quote = 0;
@@ -1679,21 +1750,21 @@ sub _parse_multiple_rows {
                 }
                 elsif ($within_value && !$seen_quote && $char eq '"') {
                     if ($Debug > 2) {
-                        print STDERR "within_value and !seen_quote and char eq \"\n";
+                        $Emit_Debug->("within_value and !seen_quote and char eq \"\n");
                     }
                     $seen_quote = 1;
                     $value .= $char;
                 }
                 elsif ($within_value && $seen_quote && $char eq '"') {
                     if ($Debug > 2) {
-                        print STDERR "within_value and seen_quote and char eq \"\n";
+                        $Emit_Debug->("within_value and seen_quote and char eq \"\n");
                     }
                     $seen_quote = 0;
                     $value .= $char;
                 }
                 elsif ($within_value && $seen_quote && $char =~ /\s/) {
                     if ($Debug > 2) {
-                        print STDERR "within_value and seen_quote and char matches space\n";
+                        $Emit_Debug->("within_value and seen_quote and char matches space\n");
                     }
                     $seen_quote = 0;
                     $within_value = 0;
@@ -1703,7 +1774,7 @@ sub _parse_multiple_rows {
                     $value =~ s/\"\"/\"/g;
 
                     if ($Debug > 2) {
-                        print STDERR "adding $keys[$column]: $value\n";
+                        $Emit_Debug->("adding $keys[$column]: $value\n");
                     }
                     
                     if (exists $keys[$column]) {
@@ -1715,7 +1786,7 @@ sub _parse_multiple_rows {
                 }
                 elsif ($within_value && !$seen_quote) {
                     if ($Debug > 2) {
-                        print STDERR "within_value and !seen_quote\n";
+                        $Emit_Debug->("within_value and !seen_quote\n");
                     }
                     $value .= $char;
                 }

@@ -1,3 +1,8 @@
+0.56 Fri Jul 28 10:09:00 NZST 2011
+    - Feature: Debug() now supports a call-back method
+    - Feature: New package global $Last_Error to store last error encountered
+    - Bug: Make login() return 0 on failure and 1 on success
+
 0.55 Fri May 06 11:01:00 NZST 2011
     - Bug: Change buffer code in _read_response to use Timeout based loop rather than a read-count.  Large responses were previously truncated.
     - Bug: Response lines should not be parsed until the buffer is complete
