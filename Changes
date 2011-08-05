@@ -1,3 +1,6 @@
+0.57 Fri Aug  5 11:06:00 NZST 2011
+    - Feature: Transparently attempt to reconnect/retransmit upon Error 34 (Connection timed out) returns from APP
+
 0.56 Fri Jul 28 10:09:00 NZST 2011
     - Feature: Debug() now supports a call-back method
     - Feature: New package global $Last_Error to store last error encountered

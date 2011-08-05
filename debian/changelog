@@ -1,3 +1,9 @@
+libnet-opensrs-email-app-perl (0.57) natty; urgency=low
+
+  * New upstream release
+
+ -- Mark Goldfinch <mark.goldfinch@modicagroup.com>  Fri, 05 Aug 2011 11:15:22 +1200
+
 libnet-opensrs-email-app-perl (0.56) natty; urgency=low
 
   * New upstream release

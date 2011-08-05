@@ -15,11 +15,11 @@ Net::OpenSRS::Email_APP -- Communicate using the OpenSRS Email Service Account P
 
 =head1 VERSION
 
-Version 0.56
+Version 0.57
 
 =cut 
 
-our $VERSION = '0.56';
+our $VERSION = '0.57';
 $APP_PROTOCOL_VERSION='3.4';
 $Debug=0;
 $Emit_Debug = sub { print STDERR join("\n", @_) . "\n"; };
@@ -102,6 +102,7 @@ sub new {
         $env = 'test';
     }
 
+    ${*$self}{opensrs_app_environment} = $env;
     ${*$self}{opensrs_app_user} = delete $arg{User};
     ${*$self}{opensrs_app_domain} = delete $arg{Domain};
     ${*$self}{opensrs_app_password} = delete $arg{Password};
@@ -1425,6 +1426,23 @@ sub enable_offering {
 #
 # Only internal routines from here on..
 #
+sub _reconnect {
+    my ($self) = @_;
+
+    if ($Debug) {
+        $Emit_Debug->("_reconnect: Closing original connection\n");
+    }
+    $self->close(SSL_fast_shutdown=>1);
+    $self = new Net::OpenSRS::Email_APP( Environment => ${*$self}{opensrs_app_environment},
+                                         User        => ${*$self}{opensrs_app_user},
+                                         Domain      => ${*$self}{opensrs_app_domain},
+                                         Password    => ${*$self}{opensrs_app_password} ) || die "I encountered a problem: $Net::OpenSRS::Email_APP::Last_Error";
+
+    if (!$self->login()) {
+        die "unable to login to OpenSRS APP: $Net::OpenSRS::Email_APP::Last_Error";
+    }
+}
+
 sub _call_opensrs {
     my ($self, %params) = @_;
 
@@ -1470,6 +1488,18 @@ sub _call_opensrs {
     
     $self->_send("$statement");
     my ($r_code, $r) = $self->_read();
+
+    # Connection timed out - attempt a single retransmit
+    if ($r_code == 34) {
+        if ($Debug) {
+            $Emit_Debug->("Got $r_code - $r, attempting reconnect and retransmit\n");
+        }
+
+        $self->_reconnect();
+        $self->_send("$statement");
+        ($r_code, $r) = $self->_read();
+    }
+
     if ($r_code != 0) {
         $error = "$sub unsuccessful return from OpenSRS: ($r_code) $r";
         return (undef, $error);
@@ -1576,12 +1606,17 @@ sub _read_response {
 
         ${*$self}{opensrs_app_status_text} = $status_text;
 
-        my $error = "OpenSRS returned an error, status code: $status_code";
+        my $error = "OpenSRS Email APP error: $status_code";
         if (defined $status_text) {
-            $error .= ", status_text: $status_text";
+            $error .= ", $status_text";
         }
 
-        return 1, $error;
+        if ($status_code > 0) {
+            return $status_code, $error;
+        }
+        else {
+            return 1, $error;
+        }
     }
 
     #
