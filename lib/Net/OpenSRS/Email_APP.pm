@@ -15,15 +15,14 @@ Net::OpenSRS::Email_APP -- Communicate using the OpenSRS Email Service Account P
 
 =head1 VERSION
 
-Version 0.57
+Version 0.58
 
 =cut 
 
-our $VERSION = '0.57';
+our $VERSION = '0.58';
 $APP_PROTOCOL_VERSION='3.4';
 $Debug=0;
 $Emit_Debug = sub { print STDERR join("\n", @_) . "\n"; };
-@ISA=('IO::Socket::SSL');
 
 # All possible OpenSRS Email Service APP environments
 my %environments = (
@@ -61,9 +60,8 @@ my $Buf_len = 32768;
     "Net::OpenSRS::Email_APP" provides an object interface for
     communicating OpenSRS Email Service Account Provisioning Protocol
     (APP).  For this module to be useful to you, you will need an
-    OpenSRS reseller account, and MAC credentials.  This module
-    inherits IO::Socket::SSL, thus depends upon its presence to
-    function.
+    OpenSRS reseller account, and MAC credentials.  This module uses
+    IO::Socket::SSL, thus depends upon its presence to function.
 
 =cut
 
@@ -86,7 +84,14 @@ my $Buf_len = 32768;
 sub new {
     my ($class, %arg) = @_;
 
-    my $self = $class->SUPER::new();
+    my $self = {};
+    bless $self, $class;
+    $self->_initialise(%arg);
+    return $self;
+}
+
+sub _initialise {
+    my ($self, %arg) = @_;
 
     my $env = delete $arg{Environment};
     if (defined $env && !exists $environments{$env}) {
@@ -102,32 +107,34 @@ sub new {
         $env = 'test';
     }
 
-    ${*$self}{opensrs_app_environment} = $env;
-    ${*$self}{opensrs_app_user} = delete $arg{User};
-    ${*$self}{opensrs_app_domain} = delete $arg{Domain};
-    ${*$self}{opensrs_app_password} = delete $arg{Password};
-    if (!defined ${*$self}{opensrs_app_user} || ${*$self}{opensrs_app_user} eq '') {
+    $self->{environment} = $env;
+    $self->{username}    = delete $arg{User};
+    $self->{domain}      = delete $arg{Domain};
+    $self->{password}    = delete $arg{Password};
+    if (!defined $self->{username} || $self->{username} eq '') {
         croak 'Net::OpenSRS::Email_APP: User must be specified';
     }
-    if (!defined ${*$self}{opensrs_app_domain} || ${*$self}{opensrs_app_domain} eq '') {
+    if (!defined $self->{domain} || $self->{domain} eq '') {
         croak 'Net::OpenSRS::Email_APP: Domain must be specified';
     }
-    if (!defined ${*$self}{opensrs_app_password} || ${*$self}{opensrs_app_password} eq '') {
+    if (!defined $self->{password} || $self->{password} eq '') {
         croak 'Net::OpenSRS::Email_APP: Password must be specified';
     }
 
     # Hard-wire this, udp will never work
     $arg{Proto} = 'tcp';
-
+ 
     if (!exists $arg{Timeout}) {
         $arg{Timeout} = $Timeout;
     }
 
     if ($Debug) {
-        $Emit_Debug->("Net::OpenSRS::Email_APP using:\nEnvironment: $env\nHost/Port: $arg{PeerAddr}\nUser: ${*$self}{opensrs_app_user}\nDomain: ${*$self}{opensrs_app_domain}\nPassword: ${*$self}{opensrs_app_password}\nTimeout: $arg{Timeout}\n\n");
+        $Emit_Debug->("Net::OpenSRS::Email_APP using:\nEnvironment: $self->{environment}\nHost/Port: $arg{PeerAddr}\nUser: $self->{username}\nDomain: $self->{domain}\nPassword: $self->{password}\nTimeout: $arg{Timeout}\n\n");
     }
 
-    return $self->configure(\%arg);
+    my $socket = new IO::Socket::SSL(%arg);
+    $self->{socket} = $socket;
+    return $self;
 }
 
 =head1 GENERAL METHODS
@@ -148,9 +155,9 @@ sub login {
     }
 
     my %args;
-    $args{User}     = ${*$self}{opensrs_app_user};
-    $args{Domain}   = ${*$self}{opensrs_app_domain};
-    $args{Password} = ${*$self}{opensrs_app_password};
+    $args{User}     = $self->{username};
+    $args{Domain}   = $self->{domain};
+    $args{Password} = $self->{password};
     my ($rows,$error) = $self->_call_opensrs(Required=>[qw/User Domain Password/], Args=>\%args);
     if (defined $error) {
         carp $error;
@@ -174,7 +181,8 @@ sub quit {
     if ($r_code != 0) {
         carp "quit: Unsuccessful return from OpenSRS: ($r_code) $r";
     }
-    $self->close();
+    my $socket = $self->{socket};
+    $socket->close(SSL_fast_shutdown=>1);
 }
 
 =head2 debug ( $level, $debug_cb )
@@ -208,8 +216,8 @@ sub debug {
 sub last_status {
     my ($self) = @_;
 
-    my $status_code = ${*$self}{opensrs_app_status_code};
-    my $status_text = ${*$self}{opensrs_app_status_text};
+    my $status_code = $self->{status_code};
+    my $status_text = $self->{status_text};
 
     return ($status_code, $status_text);
 }
@@ -1432,15 +1440,25 @@ sub _reconnect {
     if ($Debug) {
         $Emit_Debug->("_reconnect: Closing original connection\n");
     }
-    $self->close(SSL_fast_shutdown=>1);
-    $self = new Net::OpenSRS::Email_APP( Environment => ${*$self}{opensrs_app_environment},
-                                         User        => ${*$self}{opensrs_app_user},
-                                         Domain      => ${*$self}{opensrs_app_domain},
-                                         Password    => ${*$self}{opensrs_app_password} ) || die "I encountered a problem: $Net::OpenSRS::Email_APP::Last_Error";
+    
+    my $environment = $self->{environment};
+    my $username    = $self->{username};
+    my $domain      = $self->{domain};
+    my $password    = $self->{password};
+
+    my $socket = $self->{socket};
+    $socket->close(SSL_fast_shutdown=>1);
+    
+    $self->_initialise( Environment => $environment,
+                        User        => $username,
+                        Domain      => $domain,
+                        Password    => $password ) || die "I encountered a problem: $Net::OpenSRS::Email_APP::Last_Error";
 
     if (!$self->login()) {
         die "unable to login to OpenSRS APP: $Net::OpenSRS::Email_APP::Last_Error";
     }
+    
+    return $self;
 }
 
 sub _call_opensrs {
@@ -1525,18 +1543,37 @@ sub _generate_opensrs_cmd {
 sub _send {
     my ($self, $msg) = @_;
 
-    my $sel = new IO::Select $self;
+    my $socket = $self->{socket};
+    my $sel = new IO::Select $socket;
     unless ($sel->can_write($Timeout)) {
-        $@ = 'send: timeout';
+        if ($Debug) {
+            $Emit_Debug->("_send: select can_write returns false\n");
+        }
+        $@ = '_send: timeout';
         $! = (exists &Errno::ETIMEDOUT ? &Errno::ETIMEDOUT : 1);
-        return;
+        return $!;
     }
 
     if ($Debug) {
         $Emit_Debug->("sending: $msg\n");
     }
 
-    printf $self "%s\r\n.\r\n", $msg;
+    $SIG{PIPE} = 'IGNORE';
+    if (printf $socket "%s\r\n.\r\n", $msg) {
+        return 0;
+    }
+
+    # We likely got a SIGPIPE above, reconnect and try one more time
+    $self->_reconnect();
+    $socket = $self->{socket};
+    if (printf $socket "%s\r\n.\r\n", $msg) {
+        return 0;
+    }
+    else {
+        $@ = '_send: broken pipe';
+        $! = (exists &Errno::EPIPE ? &Errno::EPIPE : 1);
+        return $!;
+    }
 }
 
 sub _read {
@@ -1593,8 +1630,8 @@ sub _read_response {
     #
     my $status_line = shift @response;
     my ($status, $status_code, $status_text) = split(/\s+/, $status_line, 3);
-    ${*$self}{opensrs_app_status_code} = $status_code;
-    ${*$self}{opensrs_app_status_text} = $status_text;
+    $self->{status_code} = $status_code;
+    $self->{status_text} = $status_text;
 
     if ($status eq 'ER') {
         if (@response > 0) {
@@ -1604,7 +1641,7 @@ sub _read_response {
             $status_text = join("\n", $status_text, @response);
         }
 
-        ${*$self}{opensrs_app_status_text} = $status_text;
+        $self->{status_text} = $status_text;
 
         my $error = "OpenSRS Email APP error: $status_code";
         if (defined $status_text) {
@@ -1847,14 +1884,19 @@ sub _parse_multiple_rows {
 sub _read_buf {
     my ($self) = @_;
     my $buf;
-    my $sel = new IO::Select $self;
-    unless ($sel->can_read($Timeout)) {
-        $@ = 'recv: timeout';
+    my $socket = $self->{socket};
+    my $sel = new IO::Select $socket;
+    unless ($sel->can_read($Timeout)) { 
+        if ($Debug) {
+            $Emit_Debug->("_read_buf: select can_read returns false\n");
+        }
+       
+        $@ = 'read: timeout';
         $! = (exists &Errno::ETIMEDOUT ? &Errno::ETIMEDOUT : 1);
         return;
     }
     
-    read $self, $buf, $Buf_len;
+    read $socket, $buf, $Buf_len;
     return $buf;
 }
 
