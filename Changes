@@ -1,3 +1,6 @@
+0.59 Tue Dec  9 16:39:00 NZDT 2011
+    - Bug: Make changes performed in 0.57 more broad to cover connection closures during _read_buf()
+
 0.58 Mon Aug  8 23:01:00 NZST 2011
     - Refactor: Reorganise module so use rather than inherit IO::Socket::SSL to permit socket reconnections when required
 

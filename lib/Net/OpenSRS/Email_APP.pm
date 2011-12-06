@@ -15,11 +15,11 @@ Net::OpenSRS::Email_APP -- Communicate using the OpenSRS Email Service Account P
 
 =head1 VERSION
 
-Version 0.58
+Version 0.59
 
 =cut 
 
-our $VERSION = '0.58';
+our $VERSION = '0.59';
 $APP_PROTOCOL_VERSION='3.4';
 $Debug=0;
 $Emit_Debug = sub { print STDERR join("\n", @_) . "\n"; };
@@ -811,13 +811,13 @@ sub delete_domain {
 
     Deletes this mailing-list
 
-      Required: Domain Mailbox
+      Required: Domain Group_Alias_Mailbox
     
 =cut
 sub delete_group_alias_mailbox {
     my ($self, %args) = @_;
 
-    my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Mailbox/], Args=>\%args);
+    my ($rows, $error) = $self->_call_opensrs(Required=>[qw/Domain Group_Alias_Mailbox/], Args=>\%args);
     if (defined $error) {
         carp $error;
         $Last_Error = $error;
@@ -1507,8 +1507,8 @@ sub _call_opensrs {
     $self->_send("$statement");
     my ($r_code, $r) = $self->_read();
 
-    # Connection timed out - attempt a single retransmit
-    if ($r_code == 34) {
+    # Attempt a single retransmit if our read errorred
+    if ($r_code != 0) {
         if ($Debug) {
             $Emit_Debug->("Got $r_code - $r, attempting reconnect and retransmit\n");
         }
@@ -1518,8 +1518,12 @@ sub _call_opensrs {
         ($r_code, $r) = $self->_read();
     }
 
+    # Log the fact it *still* didn't work
     if ($r_code != 0) {
         $error = "$sub unsuccessful return from OpenSRS: ($r_code) $r";
+        if ($Debug) {
+            $Emit_Debug->("$sub unsuccessful return from OpenSRS: ($r_code) $r\n");
+        }
         return (undef, $error);
     }
 
@@ -1579,12 +1583,6 @@ sub _send {
 sub _read {
     my ($self) = @_;
 
-    return _read_response($self);
-}
-
-sub _read_response {
-    my ($self) = @_;
-
     #
     # First lets read out the buffer a reasonable number of times
     # until we receive a complete response (signified by \r\n.\r\n)
@@ -1597,15 +1595,17 @@ sub _read_response {
         if ($Debug > 1) {
             $Emit_Debug->("==enter buf read ==\ncomplete_response: $complete_response\nelapsed: $elapsed\nTimeout: $Timeout\n\n");
         }
-        $buf .= _read_buf($self);
-        if (!defined $buf) {
+        my $b = _read_buf($self);
+        if (!defined $b) {
             return $!, $@;
         }
         
+        $buf .= $b;
+
         if ($Debug) {
-            $Emit_Debug->("read: $buf\n\n");
+            $Emit_Debug->("read: [$b]\nbuf: [$buf]\n\n");
         }
-        
+
         if ($buf =~ /\r\n\.\r\n/ms) {
             $complete_response = 1;
             last;
@@ -1886,7 +1886,7 @@ sub _read_buf {
     my $buf;
     my $socket = $self->{socket};
     my $sel = new IO::Select $socket;
-    unless ($sel->can_read($Timeout)) { 
+    if (!$sel->can_read($Timeout)) { 
         if ($Debug) {
             $Emit_Debug->("_read_buf: select can_read returns false\n");
         }
@@ -1896,7 +1896,14 @@ sub _read_buf {
         return;
     }
     
-    read $socket, $buf, $Buf_len;
+    my $bytes = sysread($socket, $buf, $Buf_len);
+
+    if ($bytes == 0) {
+        $@ = 'read: connection closed';
+        $! = (exists &Errno::EINTR ? &Errno::EINTR : 1);
+        return;
+    }
+
     return $buf;
 }
 
