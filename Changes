@@ -1,4 +1,7 @@
-0.59 Tue Dec  9 16:39:00 NZDT 2011
+0.60 Thu Dec  8 13:14:00 NZDT 2011
+    - Bug: Perform the same changes as last release but this time to writes within _send()
+
+0.59 Tue Dec  6 16:39:00 NZDT 2011
     - Bug: Make changes performed in 0.57 more broad to cover connection closures during _read_buf()
 
 0.58 Mon Aug  8 23:01:00 NZST 2011

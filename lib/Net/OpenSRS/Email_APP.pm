@@ -1563,14 +1563,16 @@ sub _send {
     }
 
     $SIG{PIPE} = 'IGNORE';
-    if (printf $socket "%s\r\n.\r\n", $msg) {
+    my $bytes = syswrite($socket, sprintf("%s\r\n.\r\n", $msg));
+    if (defined $bytes) {
         return 0;
     }
 
     # We likely got a SIGPIPE above, reconnect and try one more time
     $self->_reconnect();
     $socket = $self->{socket};
-    if (printf $socket "%s\r\n.\r\n", $msg) {
+    $bytes = syswrite($socket, sprintf("%s\r\n.\r\n", $msg));
+    if (defined $bytes) {
         return 0;
     }
     else {
