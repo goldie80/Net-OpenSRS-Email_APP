@@ -15,11 +15,11 @@ Net::OpenSRS::Email_APP -- Communicate using the OpenSRS Email Service Account P
 
 =head1 VERSION
 
-Version 0.59
+Version 0.60
 
 =cut 
 
-our $VERSION = '0.59';
+our $VERSION = '0.60';
 $APP_PROTOCOL_VERSION='3.4';
 $Debug=0;
 $Emit_Debug = sub { print STDERR join("\n", @_) . "\n"; };
